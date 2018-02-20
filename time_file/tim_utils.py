@@ -1,26 +1,27 @@
-__all__ = ['Time_Section', 'Periods']
+__all__ = ['time_sorting', 'time_periods']
 __version__ = '0.1'
 __author__ = 'Juan J. Torres'
 
 
 def time_sorting(timfile):
-    
-    
+        
     """
-    This function separates and organizes the .time file according to
+    This function separates and organizes the .time file according
     the specific sections: TIME, PERIODS, ROWS and COLUMNS
 
     Parameters
     ----------
     timefile : str
-      Path to .tim file
+      Name and path of .tim file
 
     Returns
     -------
     sect : dict
       Sorted elements of the .tim file
     """
-   
+
+    print "Reading time file" + timfile
+    
     sect = {'TIME': [], 'PERIODS': [], 'ROWS': [], 'COLUMNS': []}
     se_cont = {'TIME': 0, 'PERIODS': 0,
                'ROWS': 0, 'COLUMNS': 0}  # Entry counter
@@ -41,7 +42,7 @@ def time_sorting(timfile):
             se_cont[c_s] += 1
 
             if se_cont[c_s] > 1:  # Validation 2
-                raise NameError('Section' + c_s \
+                raise NameError('Section' + c_s
                                 + ' should be defined once')
         else:
             if c_s == '':  # Validation (1)
@@ -49,11 +50,13 @@ def time_sorting(timfile):
                 break
 
             sect[c_s].append(u)  # Stores section elements
-    return sect 
 
-def period_section(p_l):
-    
-    
+    fil.close()            
+    return sect
+
+
+def time_periods(p_l):
+        
     """
     This function analyses the PERIOD section
 
@@ -71,6 +74,7 @@ def period_section(p_l):
     rows : dict
       constraint to stage header
     """
+    
     stages = list()    # Time stages
     var = dict()       # Variable to stage dict
     rows = dict()      # Rows ordered dict
@@ -78,21 +82,17 @@ def period_section(p_l):
     for u in p_l:
 
         # Validation (1):
-        if len(u) <> 3:
-            raise NameError ("PERIODS section must have 3 entries per line\n"
-                             + "(1) Variable Name\n" \
-                             + "(2) Row Name\n"\
-                             + "(3) Stage Name \n")
+        if len(u) != 3:
+            raise NameError("PERIODS section must have 3 entries per line\n"
+                            + "(1) Variable Name\n"
+                            + "(2) Row Name\n"
+                            + "(3) Stage Name \n")
             break
         
         stages.append(u[-1])  # Stage list update
         var[u[0]] = u[-1]     # Var update
         rows[u[1]] = u[2]     # Rows update
 
-    return Stages, Var, Rows
+    print str(len(stages)) + ' Stages'
+    return stages, var, rows
 
-
-        
-    
-        
-            
