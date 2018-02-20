@@ -1,3 +1,3 @@
-#SMPS_PYTHON
+SMPS_PYTHON
 
-#SMPS_PYTHON translates the stochastic MPS format into Python format 
+SMPS_PYTHON translates the stochastic MPS format into Python format 
