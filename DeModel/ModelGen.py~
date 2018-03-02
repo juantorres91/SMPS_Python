@@ -1,0 +1,145 @@
+#Export
+__all__=('DeModel')
+
+#import
+from datamodel        import DataModel
+from pyomo.core.base  import (ConcreteModel, Set, Param, Var,
+                              Constraint, Integers, Binary,
+                              NegativeReals)
+
+def DeModel(data):
+
+    """ 
+    Builds scenario  linear stochastic problem 
+    from data model
+    """
+    #--------------------------------------------
+    #Pyomo model
+    #--------------------------------------------
+    m=ConcreteModel()     #Pyomo concrete model
+
+    #--------------------------------------------
+    #Sets
+    #--------------------------------------------
+    m.Var=Set( initialize=data.variables)              #Model variables 
+    m.Cons=Set( initialize=data.constraints)           #Model constraints
+    m.Stages=Set(initialize=data.stages, ordered=True) #Model time stages
+    m.Ranges=Set(initialize=data.ranges_constraints()) #Range equations
+    
+    #--------------------------------------------
+    #Parameters
+    #--------------------------------------------
+
+    #Constaraint coefficients
+    m.A=Param(m.Cons, m.Var, initialize=data.matrix,\
+              default=0, mutable=True)
+
+    #Constraint  Right-Hand-Side Coefficients
+    m.b=Param(m.Cons, initialize=data.rhs, \
+              default=0, mutable=True)
+
+    #Ranges parameters
+    m.rang=Param(m.Ranges, initialize=data.ranges_coefficients(),\
+                 default=0, mutable=True)
+
+    #--------------------------------------------
+    #Variables
+    #--------------------------------------------
+
+    #Default variables: Continuous positive
+    m.x=Var(m.Var, bounds=(0,None))
+    m.SC=Var(m.Stages)              #Stage Cost (Objective)
+
+    #Domain alteration (Free, Positive, Negative Behavior)
+    for i in data.free_variables():           #Free variables
+        m.x[i].free()
+    for i in data.negative_variables():  #Negative variables
+        m.x[i].domain=NegativeReals 
+
+    #Variable bounds (Upper, Lower, Upper Integer, Fixed)
+    up=data.upbound()          #Upper bound
+    lo=data.lobound()          #Lower bound
+    ui=data.uibound()          #UI bound
+    fx=data.fixed_variables()  #Fixed variables
+    
+    for i in up:
+        m.x[i].setub(up[i])
+    for i in lo:
+        m.x[i].setlo(lo[i])
+    for i in ui:
+        m.x[i].setub(ui[i])
+    for i in fx:
+        m.x[i].fix(fx[i]) 
+
+    #Variable nature (Integer, Binary)
+    for i in data.integer_variables:   #Integer variables
+        m.x[i].domain=Integers
+
+    for i in data.binary_variables():  #Binary variables
+        m.x[i].domain=Binary
+
+    #------------------------------------------------
+    #Constraints
+    #-----------------------------------------------
+    typ=data.constraint_type #Constraint clasification    
+    obna=typ['N'][0]         #Objetive name
+    
+    #Model constraints
+    def ConsRule(m,i):
+
+        # Ax<=b constraints
+        if i in typ['L']:
+            if i in m.Ranges:   #Range type
+                return (m.b[i]-abs(m.rang[i]), sum(m.A[i,j]*m.x[j] for j in m.Var), m.b[i])
+            else:
+                return sum(m.A[i,j]*m.x[j] for j in m.Var)<=m.b[i]
+
+        #Ax>=b constaints
+        elif i in typ['G']:
+            if i in m.Ranges:   #Range type
+                return (m.b[i], sum(m.A[i,j]*m.x[j] for j in m.Var), m.b[i]+abs(m.rang[i]) )
+            else:
+                return sum(m.A[i,j]*m.x[j] for j in m.Var)>=m.b[i]
+
+        #Ax=b constarints
+        elif i in typ['E']:
+            if i in m.Ranges:    #Range type
+                if m.ran[i]>0:
+                    return (m.b[i], sum(m.A[i,j]*m.x[j] for j in m.Var), m.b[i]+m.rang[i])
+                else:
+                    return (m.b[i]+m.rang[i], sum(m.A[i,j]*m.x[j] for j in m.Var), m.b[i])
+            else:
+                return sum(m.A[i,j]*m.x[j] for j in m.Var)==m.b[i]
+
+        #Objetive function 
+        else:
+            return Constraint.Skip
+
+    #Constraint attribute
+    m.ConsRule=Constraint(m.Cons, rule=ConsRule)
+
+    #----------------------------------------------
+    #Objective Definition
+    #----------------------------------------------
+    st2var=data.st_to_var #Stage to var structure
+
+    def Stage_Cost(m,i):
+        return m.SC[i]==\
+            sum(m.A[obna,j]*m.x[j] for j in m.Var if j in st2var[i])
+    m.Stage_Cost=Constraint(m.Stages, rule=Stage_Cost)
+
+    #-------------------------------------------- 
+    #Model return
+    #--------------------------------------------
+    return m
+       
+
+#Testing
+if __name__=="__main__":
+    import sys
+
+    data=DataModel(sys.argv[1], sys.argv[2])
+    DeModel(data)
+
+   
+    

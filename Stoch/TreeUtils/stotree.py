@@ -1,0 +1,209 @@
+#Exports
+__all__=('StoTree', 'tree_exploration')
+
+#Imports
+from sets      import Set
+from networkx  import (DiGraph, has_path, ancestors,  
+                       set_node_attributes,
+                      set_edge_attributes)
+from SMPS.Stoch.TreeUtils.bounds import SBound
+
+#----------------------------------------------
+#Recursive replace search
+#----------------------------------------------
+def node_exploration(ref,tree,node): 
+    """ 
+    Scenario path recursive fuction
+    #-----------------------
+    Input: SC, stochastic case
+         : tree realization structure
+    """
+    parent=ref[node]()   #Parent Scenario
+
+    for j in tree.edges(node):
+        ref[j[1]]().der_realization(parent) #Scenario recursion
+        node_exploration(ref,tree,j[1])     #Node     recursion
+
+#----------------------------------------------
+#Scenario realization analysis
+#----------------------------------------------
+def tree_exploration(ref,tree):
+    """ 
+    Scenario path analysis- Seed
+    #-----------------------
+    Input: SC, stochastic case
+         : tree realization structure
+    """
+
+    for j in tree.edges('ROOT'):
+        node_exploration(ref,tree,j[1])
+
+#---------------------------------------------
+#Node  probability tree
+#--------------------------------------------
+def Node_pro(tree):
+    """
+    Computes tree probability
+    Node base
+    """ 
+    set_node_attributes(tree,'probability',1)  #Edge conditional probability
+
+    for s in tree.nodes():
+        #Case (1): No empty nodes
+        if len( tree.edges(s) )>=1:
+            #Inner loop
+            for j in tree.edges(s):
+
+                #Probability calculation 
+                pr=tree.node[j[1]]['pro1']/tree.node[s]['pro1']
+                tree.node[j[1]]['probability']=float(pr) 
+
+def Edge_pro(tree):
+    """
+    Computes tree probability
+    Edge based
+    """
+    set_node_attributes(tree,'probability',1)  #Edge conditional probability
+
+    for s in tree.nodes():
+        #Case (1): No empty nodes
+        if len( tree.edges(s) )>=1:
+            #Inner loop
+            for j in tree.edges(s):
+
+                #Probability calculation
+                pr=tree.node[j[1]]['pro1']/tree.node[s]['pro1']
+                tree.edge[j[0]][j[1]]['probability']=float(pr)
+
+
+#-----------------------------------------------
+#Generates event tree from Scenarios section
+#-----------------------------------------------
+def StoTree(G,sc,st,pro,Edge=False):
+
+    """ 
+    Event tree analysis
+    #-----------------------
+    Input: G realization path
+         : sc scenario set
+         : st ordered stage list
+         : pro stage probability
+    """
+    #Graph control
+    bound={}           #Bound object dictionary
+    s2st={}            #Scenario to stage list
+        
+    #Output values
+    tree=DiGraph()                     #Realization tree 
+    tree.add_node('ROOT',stage=st[0])  #Root node
+    
+    #Node to scenario
+    for s in sc:
+        #Verification (1): Conected scenarios
+        if has_path(G,'ROOT',s)==False:
+            raise NameError('Every scenario must be connected'\
+                            +' to the ROOT node')
+        else:
+            tree.add_node(s+'_'+st[-1],
+                          stage=st[-1],
+                          scenario=s)     #Scenario node
+            bound[s]=SBound()             #New time bound delimiters
+            s2st [s]=Set([len(st)-1])     #S2st entries
+
+    #-----------------------------------------
+    #Tree analysis
+    #-----------------------------------------
+    for u in G.edges():
+
+        #Case (1): Root to node
+        if u[0]=='ROOT':
+
+            #Tree parameters
+            tree.add_node(u[1]+'_'+st[1], stage=st[1])
+            tree.add_edge('ROOT', u[1]+'_'+st[1])
+            
+            #Bound analysis
+            bound[ u[1] ].set_min(2)
+            #Scenario time update
+            s2st[ u[1] ].add(1)
+
+        #Case (2): Non anticipated constraint - from 2 stage 
+        elif G[u[0]][u[1]]['time']==st[1]:
+
+            #Tree parameters
+            tree.add_node(u[1]+'_'+st[1], stage=st[1])
+            tree.add_edge('ROOT', u[1]+'_'+st[1])
+
+            #Bound analysis
+            bound [u[1] ].set_min(2)
+            #Scenario time update
+            s2st[u[1]].add(1)
+
+        #Case (3): Other arcs
+        else:
+            #Time
+            tim=G.edge[u[0]][u[1]] ['time'] #Non anticipativity time
+            o_tim=st.index(tim)             #NAC time ordinal
+
+            #Nodes 
+            out=u[0]+'_'+ st[o_tim-1]  #Separation node
+            inl=u[1]+'_'+ tim          #New scenario node
+
+            #Non repeated nodes         
+            if inl not in s2st[ u[0] ]:
+                tree.add_node(inl, stage=tim)
+
+            if out not in s2st[ u[1] ]:
+                tree.add_node(out, stage=st[o_tim-1]) 
+            
+            #Tree- edge update
+            tree.add_edge(out,inl)      #New tree edge 
+
+            #Bound analysis            
+            bound[u[0]].set_max(o_tim+1) 
+            bound[u[1]].set_min(o_tim)
+            #Scenario time update
+            s2st[ u[0] ].add(o_tim-1)
+            s2st[ u[1] ].add(o_tim)
+
+    del bound
+    #----------------------------------------------------------
+    #Path filling
+    #----------------------------------------------------------
+    for s in sc:
+
+        stg=sorted( s2st[s], reverse=True) #Ordered time list 
+
+        #Case (1): Several scenario nodes
+        if len(stg)>1:
+            for i in range(0,len(stg)-1):               
+                tree.add_edge( s+'_'+st[stg[i+1]],s+'_'+st[stg[i]])
+    del s2st
+    #-----------------------------------------------------------
+    #Node probability:Fase (1)
+    #-----------------------------------------------------------
+    set_node_attributes(tree,'pro1',0)  #Cumulative probabiliy
+
+    for s in sc:
+        #Verification(2): Scenario root conection
+        if has_path (tree, 'ROOT', s+'_'+ st[-1])==False:
+            raise NameError('Scenarios needs to be connected to '\
+                            +'the ROOT node')
+        #Node probability
+        tree.node[s+'_'+ st[-1]]['pro1']=pro[s]  #Terminal node
+        for u in ancestors(tree, s+'_'+st[-1]):
+            tree.node[u]['pro1']+=pro[s]          #Ancestor node
+
+    #------------------------------------------------------------
+    #Probability: Fase (2)
+    #------------------------------------------------------------
+    if Edge:
+        Edge_pro(tree)
+    else:
+        Node_pro(tree)
+
+    #-----------------------------
+    #Return
+    #-----------------------------
+    return tree
+

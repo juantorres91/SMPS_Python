@@ -1,0 +1,1 @@
+from stomodel import StoModel

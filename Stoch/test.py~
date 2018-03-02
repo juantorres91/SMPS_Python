@@ -1,0 +1,13 @@
+from SMPS.DeModel import (DeModel,DataModel)
+from StoModel     import StoModel
+
+cor_file="pltexpa-7.cor"
+sto_file="pltexpa-7-6.sto"
+tim_file="pltexpa-7.tim"
+
+Root=    DataModel(cor_file, tim_file)
+Case=    StoModel (Root, sto_file)
+print Case.names
+
+#py_model=DeModel(Root)
+

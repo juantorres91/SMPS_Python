@@ -1,0 +1,11 @@
+from sets import Set
+
+def Sto_Section(stofile):
+    """
+    .sto file section classifier
+    """
+    #Output dict
+    Sections={'NAME':[], 'ROWS':[], 'COLUMNS':[], \
+              'RHS':[],'RANGES':[], 'BOUNDS':[]}
+    keys=Set(Sections.keys()) #Section names
+ 

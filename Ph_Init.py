@@ -1,0 +1,126 @@
+#Export
+__all__=('ph_init')
+
+#Import
+import pyomo.environ
+import pickle
+from   sets        import Set
+from   pyomo.opt   import SolverFactory
+from   ModelGen    import ModelInstance
+from   networkx    import ancestors
+from   numpy       import float64
+from   container   import VarContainer
+
+
+def ph_init(Root,Case, model,solver='cbc'):
+    """
+    PH algorithm quadratic penalty term 
+    initialization
+    """
+
+    #Scenario list
+    sce_instances={}
+
+    #Scenario variable container
+    cont_mean={}  #Continuous variable average
+    cont_val= {}  #Variable container dict
+    
+    #Variables set
+    cont=Set()   #Continuous variables
+    inte=Set()   #Binary/Integer variables
+
+    #Max-Min parameters
+    i_min={}     #Maximum integer value
+    i_max={}     #Minimum integer value
+    
+    for v in Root.variables:
+
+        #First stage variables
+        if Root.st_to_var[v]==Root.stages[0]:
+
+            #Continuous variables
+            if model.x[v].is_continuous():
+                cont.add(v)
+                cont_mean[v]=0
+            else:
+                inte.add(v)
+                i_min[v]=float('inf')
+                i_max[v]=0
+                
+    #Instance solver
+    sol=SolverFactory(solver)
+
+    #---------------------------------------
+    #Scenario loop
+    #---------------------------------------
+    for nm in Case.names:
+
+        scenario=Case.scenario(nm)             #Realization
+        instance=ModelInstance(model,scenario) #Pyomo model
+        nd=Case.scenario_node[nm]              #Node value
+
+        pro=float64(Case.tree.node[nd]['probability'])
+
+        #Scenario probability
+        for u in ancestors(Case.tree, nd):
+            pro*=float64(Case.tree.node[u]['probability'])
+
+        #Container-----------------------------
+        v=VarContainer(pro) #
+
+        #Scenario solve-Model generation
+        sol.solve(instance)
+        sce_instances[nm]=instance #Model storing 
+
+        #-------------------------------------
+        #Variable analysis
+        #-------------------------------------
+        for u in inte:
+
+            #Minimum
+            if instance.x[u].value<i_min[u]:
+                i_min[u]=instance.x[u].value
+            #Maximum
+            if instance.x[u].value>i_max[u]:
+                i_max[u]=instance.x[u].value
+
+        for u in cont:
+            cont_mean[u]+=instance.x[u].value*pro
+            v.add_var(u,instance.x[u].value)
+
+        #Storage set
+        cont_val[nm]=v 
+
+    #------------------------------------
+    #Variable term
+    #------------------------------------
+
+    rho={}
+    ob=model._obname
+
+    #Continuous
+    for i in cont:
+        dem=0
+        for j in Case.names:
+            pr=cont_val[j].probability
+            dem+=pr*abs(cont_mean[i]-cont_val[j].sol[i])
+
+        dem=float64(model.A[ob,i].value)/ max(1, dem)
+        #Parameter estimation
+        rho[i]=float(abs(dem))
+
+    #Integer
+    for j in inte:
+        dem=i_max[j]-i_min[j]+1
+        dem=float64(model.A[ob,j].value)/dem
+        rho[j]=float(abs(dem))
+
+    #--------------------------------
+    #File storing
+    #--------------------------------
+    output=open('rho.pkl','wb')
+    pickle.dump(rho,output)
+    
+    return sce_instances
+        
+    
