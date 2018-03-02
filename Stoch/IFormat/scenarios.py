@@ -5,9 +5,9 @@ __all__=('Scenarios')
 from sets       import Set 
 from numpy      import float64
 from networkx   import DiGraph
-from SMPS.Stoch.TreeUtils import (StoTree,tree_exploration)
-from SMPS.Stoch.Scenarios import Scen
-from SMPS.Stoch.Cases     import StoCase
+from smps_python.Stoch.TreeUtils import (StoTree,tree_exploration)
+from smps_python.Stoch.Scenarios import Scen
+from smps_python.Stoch.Cases     import StoCase
 
 #----------------------------------------
 #Scenario storing  and clasification

@@ -1,6 +1,6 @@
 from sets       import Set
 from DeUtils    import *
-from SMPS.Time  import (Time_Section,Periods)
+from smps_python.Time  import (Time_Section,Periods)
 
 #------------------------------------------
 #(MI)LP deterministic models

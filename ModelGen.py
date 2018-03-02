@@ -2,7 +2,7 @@
 __all__=('DeModel', 'ModelInstance')
 
 #import
-from SMPS.DeModel import DataModel
+from smps_python.DeModel import DataModel
 from pyomo.core   import *
 
 def DeModel(data):

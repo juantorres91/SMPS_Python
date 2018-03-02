@@ -6,7 +6,7 @@ from sets      import Set
 from networkx  import (DiGraph, has_path, ancestors,  
                        set_node_attributes,
                       set_edge_attributes)
-from SMPS.Stoch.TreeUtils.bounds import SBound
+from smps_python.Stoch.TreeUtils.bounds import SBound
 
 #----------------------------------------------
 #Recursive replace search

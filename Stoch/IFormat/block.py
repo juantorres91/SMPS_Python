@@ -4,8 +4,8 @@ __all__=('Block')
 #Import
 from   sets               import Set
 from   numpy              import float64
-from SMPS.Stoch.Scenarios import dScen
-from SMPS.Stoch.Cases     import dCase as dc 
+from smps_python.Stoch.Scenarios import dScen
+from smps_python.Stoch.Cases     import dCase as dc 
 
 #------------------------------------
 #Block section analyser
