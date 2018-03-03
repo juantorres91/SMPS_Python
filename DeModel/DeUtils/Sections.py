@@ -37,11 +37,11 @@ def Cor_Section(corfile):
                 Sections[sect].append(u)    #RHS, RANGE a vector names
             else:
                 sect=u[0] #Section update
-        elif len(u)==1:                  
+        #elif len(u)==1:                  
 
-            #Verification (1): Invalid keys
-            raise NameError('Section '+u[0]\
-                            +'cannot be processed')
+         #   #Verification (1): Invalid keys
+          #  raise NameError('Section ' +u[0]\
+           #                 +'cannot be processed')
         else:
             #Verification(2):Invalid data entry-unprecedented section
             if sect=='':
